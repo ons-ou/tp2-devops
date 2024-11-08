@@ -1,0 +1,29 @@
+services:
+  jenkins-container:
+    image: tp2devops
+    container_name: "jenkins-container"
+    ports:
+      - "8090:8080"
+    volumes:
+      - "jenkins_home:/var/jenkins_home"
+
+    privileged: true
+
+  sonarqube-container:
+    image: sonarqube
+    container_name: "sonarqube-container"
+    restart: always
+    ports:
+      - "9000:9000"
+    volumes:
+      - "sonar_data:/opt/sonarqube/data"         # Persist SonarQube data
+      - "sonar_logs:/opt/sonarqube/logs"         # Persist logs (optional)
+      - "sonar_extensions:/opt/sonarqube/extensions" # Persist plugins/extensions (optional)
+
+
+volumes:
+  jenkins_home:
+  jenkins_docker_certs:
+  sonar_data:
+  sonar_logs:
+  sonar_extensions:
