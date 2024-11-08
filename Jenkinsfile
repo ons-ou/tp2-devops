@@ -4,11 +4,11 @@ pipeline {
         jdk "jdk17"
         maven "maven"
     }
-     environment {
-            registry = "soumayaaloui/tp2_devops"
-            registryCredential = 'docker_hub'
-            dockerImage = ''
-     }
+    environment {
+        registry = "wwx2/tp2_devops"
+        registryCredential = 'docker_hub'
+        dockerImage = ''
+    }
     stages {
         stage("Compile") {
             steps {
@@ -31,60 +31,70 @@ pipeline {
         stage("Test") {
             steps {
                 script {
-                    echo "Test ..."
+                    echo "Running tests..."
                     sh "mvn test -X"
                 }
             }
         }
-        stage("Code Quality check"){
-            steps{
-                script{
+
+        stage("Code Quality Check") {
+            steps {
+                script {
                     echo "Running SonarQube Scanner..."
-                    withSonarQubeEnv() {
-                        sh "mvn verify sonar:sonar -Dsonar.url=http://172.31.240.1:9000/ -Dsonar.login=squ_90bc1fef228bfdb69c5719a7298c2e1eb43dcf96 -Dsonar.projectKey=TP2_DevOps -Dsonar.projectName=TP2_DevOps"
+                    withSonarQubeEnv('SonarQube') { // Specify the server name configured in Jenkins
+                        sh """
+                            mvn verify sonar:sonar \
+                            -Dsonar.projectKey=TP2_DevOps \
+                            -Dsonar.projectName=TP2_DevOps
+                        """
                     }
                 }
             }
         }
-        stage('Snyk Security Test') {
+
+        stage("Snyk Security Test") {
             steps {
-                echo 'Testing...'
                 script {
-                    // Give execute permissions to the mvnw file
+                    echo 'Testing with Snyk...'
                     sh 'chmod +x ./mvnw'
-                    // Run the dependency tree command to verify maven wrapper works
                     sh './mvnw dependency:tree -DoutputType=dot --batch-mode --non-recursive --file="pom.xml"'
                 }
                 snykSecurity(
-                    snykInstallation: 'snyk',
-                    snykTokenId: 'snyk_cred2',
+                    snykInstallation: 'snyk', // Ensure 'snyk' is configured as a tool in Jenkins
+                    snykTokenId: 'snyk_cred2', // Ensure Snyk token is set up in Jenkins credentials
                     failOnIssues: false,
                     failOnError: false
                 )
             }
         }
-    stage('Building image') {
+
+        stage("Building Docker Image") {
             steps {
                 script {
-                    dockerImage = docker.build "${registry}:${BUILD_NUMBER}"
+                    echo "Building Docker image..."
+                    dockerImage = docker.build("${registry}:${env.BUILD_NUMBER}")
                 }
             }
         }
 
-        stage('Upload Image') {
+        stage("Upload Docker Image") {
             steps {
                 script {
+                    echo "Uploading Docker image to registry..."
                     docker.withRegistry('', registryCredential) {
                         dockerImage.push()
                     }
+                    dockerImage.push("latest") // Push "latest" tag as well, if desired
                 }
             }
         }
     }
-    post {
 
+    post {
         always {
+            echo "Running post-build actions..."
             junit "target/surefire-reports/*.xml"
+            cleanWs() // Clean workspace after the build
         }
     }
 }
